@@ -1,0 +1,75 @@
+heat_template_version: 2016-10-14
+description: Template to spawn an cirros instance.
+
+parameters:
+  metadata:
+    type: json
+  image:
+    type: string
+    description: image used to create instance
+    default: CentOS7
+  flavor:
+    type: string
+    description: instance flavor to be used
+    default: 2C2R10G
+  key_name:
+    type: string
+    description: keypair to be used
+    default: demo-key
+  network:
+    type: string
+    description: project network to attach instance to
+    default: demo-net
+  external_network:
+    type: string
+    description: network used for floating IPs
+    default: public-net
+
+resources:
+  server:
+    type: OS::Nova::Server
+    properties:
+      block_device_mapping:
+        - device_name: vda
+          delete_on_termination: true
+          volume_id: { get_resource: volume }
+      flavor: {get_param: flavor}
+      key_name: {get_param: key_name}
+      metadata: {get_param: metadata}
+      networks:
+        - port: { get_resource: port }
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            yum install -y httpd
+            systemctl start httpd.service
+            systemctl enable httpd.service
+            echo “Hello World from $(hostname -f)” > /var/www/html/index.html
+          params:
+            $test_param: 1
+  port:
+    type: OS::Neutron::Port
+    properties:
+      network: {get_param: network}
+      security_groups:
+        - default
+  member:
+    type: OS::Octavia::PoolMember
+    properties:
+      pool: 859f3469-6528-473b-97eb-edb09d55d2f3
+      address: {get_attr: [server, first_address]}
+      protocol_port: 80
+
+  volume:
+    type: OS::Cinder::Volume
+    properties:
+      image: {get_param: image}
+      size: 10
+outputs:
+  server_ip:
+    description: IP Address of the load-balanced server.
+    value: { get_attr: [server, first_address] }
+  lb_member:
+    description: LB member details.
+    value: { get_attr: [member, show] }
