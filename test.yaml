@@ -1,0 +1,116 @@
+description: version 2017-09-01 created by HOT Generator at Thu, 27 May 2021 18:27:35
+  GMT.
+heat_template_version: '2018-08-31'
+resources:
+  Net_1:
+    properties:
+      admin_state_up: true
+      name: app-net
+    type: OS::Neutron::Net
+  Net_2:
+    properties:
+      admin_state_up: true
+      name: db-net
+    type: OS::Neutron::Net
+  Router_2:
+    depends_on:
+    - Subnet_1
+    - Subnet_2
+    properties:
+      admin_state_up: true
+      external_gateway_info:
+        enable_snat: true
+        network: provider-net
+      name: vRouter
+    type: OS::Neutron::Router
+  SecurityGroup_1:
+    properties:
+      name: app-sec
+      rules:
+      - direction: ingress
+        ethertype: IPv4
+        port_range_max: 22
+        port_range_min: 22
+        protocol: tcp
+        remote_ip_prefix: 0.0.0.0/0
+        remote_mode: remote_ip_prefix
+    type: OS::Neutron::SecurityGroup
+  SecurityGroup_2:
+    properties:
+      name: db-sec
+    type: OS::Neutron::SecurityGroup
+  Server_2:
+    depends_on:
+    - Subnet_1
+    - SecurityGroup_2
+    properties:
+      availability_zone: SGN09
+      flavor: 1C2G
+      image: ddfcb2b5-b91d-4359-9f0b-29e7536c4708
+      key_name: sang-training-key
+      name: db-vm
+      networks:
+      - network:
+          get_resource: Net_2
+      security_groups:
+      - get_resource: SecurityGroup_2
+    type: OS::Nova::Server
+  Server_3:
+    depends_on:
+    - Subnet_2
+    - SecurityGroup_1
+    properties:
+      availability_zone: SGN09
+      flavor: 1C2G
+      image: ddfcb2b5-b91d-4359-9f0b-29e7536c4708
+      key_name: sang-training-key
+      name: app
+      networks:
+      - network:
+          get_resource: Net_1
+      security_groups:
+      - get_resource: SecurityGroup_1
+    type: OS::Nova::Server
+  Subnet_1:
+    depends_on:
+    - Net_2
+    - Net_1
+    properties:
+      cidr: 10.10.11.0/24
+      gateway_ip: 10.10.11.1
+      ip_version: 4
+      name: db-subnet
+      network:
+        get_resource: Net_2
+    type: OS::Neutron::Subnet
+  Subnet_2:
+    depends_on:
+    - Net_1
+    - Net_2
+    properties:
+      cidr: 192.168.111.0/24
+      enable_dhcp: true
+      gateway_ip: 192.168.111.1
+      ip_version: 4
+      name: app-subnet
+      network:
+        get_resource: Net_1
+    type: OS::Neutron::Subnet
+  heat_router_interface1:
+    depends_on:
+    - Router_2
+    properties:
+      router_id:
+        get_resource: Router_2
+      subnet:
+        get_resource: Subnet_1
+    type: OS::Neutron::RouterInterface
+  heat_router_interface2:
+    depends_on:
+    - Router_2
+    properties:
+      router_id:
+        get_resource: Router_2
+      subnet:
+        get_resource: Subnet_2
+    type: OS::Neutron::RouterInterface
